@@ -1,0 +1,503 @@
+//components/ChargingStationInfo.tsx
+import { ChargingStation } from '../lib/types';
+import { calculateDistance } from '../lib/utils';
+
+interface ChargingStationInfoProps {
+  station: ChargingStation;
+  userPosition: Position;
+}
+
+const ChargingStationInfo: React.FC<ChargingStationInfoProps> = ({
+  station,
+  userPosition,
+}) => {
+  const distance = calculateDistance(
+    userPosition.coords.latitude,
+    userPosition.coords.longitude,
+    station.AddressInfo.Latitude,
+    station.AddressInfo.Longitude
+  );
+
+  const renderAttribute = (attribute: any) => {
+    if (attribute == null || attribute === '') {
+      return 'N/A';
+    } else {
+      return attribute;
+    }
+  };
+
+  return (
+    <div>
+      <h3>{renderAttribute(station.AddressInfo.Title)}</h3>
+      <p>
+        {renderAttribute(station.AddressInfo.AddressLine1)},{' '}
+        {renderAttribute(station.AddressInfo.Town)},{' '}
+        {renderAttribute(station.AddressInfo.StateOrProvince)},{' '}
+        {renderAttribute(station.AddressInfo.Postcode)}
+      </p>
+      <p>Country ID: {renderAttribute(station.AddressInfo.CountryID)}</p>
+      <p>
+        Coordinates:{' '}
+        {renderAttribute(station.AddressInfo.Latitude)},{' '}
+        {renderAttribute(station.AddressInfo.Longitude)}
+      </p>
+      <p>Operator: {renderAttribute(station.OperatorInfo?.Title)}</p>
+      <p>Distance: {distance.toFixed(2)} km</p>
+      <p>Status: {station.StatusType?.IsAvailable ? 'Available' : 'Occupied'}</p>
+      <p>Connectors:</p>
+      <ul>
+        {station.Connections.map((connection) => (
+          <li key={connection.ID}>
+            Plug Type: {connection.ConnectionTypeID}, Max Power: {connection.PowerKW} kW,{' '}
+            Quantity: {connection.Quantity}, Pricing Info: (add pricing info if available)
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default ChargingStationInfo;
+
+
+//components/ConnectorFilters.tsx
+import { useState } from 'react';
+
+interface ConnectorFiltersProps {
+  onChange: (connectors: number[]) => void;
+}
+
+const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
+  const [selectedConnectors, setSelectedConnectors] = useState([2, 25, 33]);
+
+  const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const connectorId = parseInt(event.target.value);
+    const isChecked = event.target.checked;
+    setSelectedConnectors((prevSelectedConnectors) => {
+      if (isChecked) {
+        return [...prevSelectedConnectors, connectorId];
+      } else {
+        return prevSelectedConnectors.filter((id) => id !== connectorId);
+      }
+    });
+    onChange(selectedConnectors);
+  };
+
+  return (
+    <form>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            value="25"
+            checked={selectedConnectors.includes(25)}
+            onChange={handleCheckboxChange}
+          />
+          Type 2 (25)
+        </label>
+      </div>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            value="2"
+            checked={selectedConnectors.includes(2)}
+            onChange={handleCheckboxChange}
+          />
+          CHAdeMO (2)
+        </label>
+      </div>
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            value="33"
+            checked={selectedConnectors.includes(33)}
+            onChange={handleCheckboxChange}
+          />
+          CCS (33)
+        </label>
+      </div>
+    </form>
+  );
+};
+
+export default ConnectorFilters;
+
+
+//components/Map.tsx
+//components/Map.tsx
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { Icon } from 'leaflet';
+import { ChargingStation } from '../lib/types';
+import ChargingStationInfo from './ChargingStationInfo';
+
+interface MapProps {
+  position: GeolocationPosition;
+  chargingStations: ChargingStation[];
+}
+
+const MapCenter = ({ center }: { center: [number, number] }) => {
+  const map = useMap();
+  map.setView(center, map.getZoom());
+  return null;
+};
+
+const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
+  const greenIcon = new Icon({
+    iconUrl:
+      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+
+  const redIcon = new Icon({
+    iconUrl:
+      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+
+  const yellowIcon = new Icon({
+    iconUrl:
+      'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+
+  return (
+    <MapContainer
+      center={[position.coords.latitude, position.coords.longitude]}
+      zoom={13}
+      style={{ height: '90%', width: '100%' }}
+      scrollWheelZoom={false}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {chargingStations.map((station) => {
+        const markerIcon =
+          station.StatusType?.IsOperational === null
+            ? yellowIcon
+            : station.StatusType?.IsOperational
+            ? greenIcon
+            : redIcon;
+
+        return (
+          <Marker
+            key={station.ID}
+            position={[
+              station.AddressInfo.Latitude,
+              station.AddressInfo.Longitude,
+            ]}
+            icon={markerIcon}
+          >
+            <Popup>
+              <ChargingStationInfo station={station} userPosition={position} />
+            </Popup>
+          </Marker>
+        );
+      })}
+    </MapContainer>
+  );
+};
+
+export default Map;
+
+
+//components/RadiusInput.tsx
+import { useState } from 'react';
+
+interface RadiusInputProps {
+  onChange: (radius: number) => void;
+  initialRadius: number;
+}
+
+export const RadiusInput: React.FC<RadiusInputProps> = ({
+  onChange,
+  initialRadius,
+}) => {
+  const [radius, setRadius] = useState(initialRadius);
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    onChange(radius);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        Radius (km):
+        <input type="range" min={0} max={100} value={radius} onChange={event => setRadius(parseInt(event.target.value))} />
+        {radius} km
+      </label>
+    </form>
+  );
+};
+
+interface MaxResultsDropdownProps {
+  onChange: (maxResults: number) => void;
+  initialMaxResults: number;
+}
+
+export const MaxResultsDropdown: React.FC<MaxResultsDropdownProps> = ({
+  onChange,
+  initialMaxResults,
+}) => {
+  const [maxResults, setMaxResults] = useState(initialMaxResults);
+
+  const handleMaxResultsChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = parseInt(event.target.value);
+    setMaxResults(value);
+    onChange(value);
+  };
+
+  return (
+    <label>
+      Max Results:
+      <select value={maxResults} onChange={handleMaxResultsChange}>
+        <option value={20}>20</option>
+        <option value={50}>50</option>
+        <option value={100}>100</option>
+        <option value={200}>200</option>
+        <option value={500}>500</option>
+      </select>
+    </label>
+  );
+};
+
+
+
+//pages/index.tsx
+import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { getCurrentPosition } from '../lib/geolocation';
+import { getChargingStations } from '../lib/api';
+import { CONNECTOR_TYPE_IDS } from '../lib/constants';
+import { ChargingStation } from '../lib/types';
+import ConnectorFilters from '../components/ConnectorFilters';
+import {MaxResultsDropdown, RadiusInput} from '../components/RadiusInput';
+
+const Map = dynamic(() => import('../components/Map'), { ssr: false });
+
+export default function Home() {
+  const [position, setPosition] = useState<GeolocationPosition | null>(null);
+  const [chargingStations, setChargingStations] = useState<ChargingStation[]>([]);
+  const [selectedConnectors, setSelectedConnectors] = useState(CONNECTOR_TYPE_IDS);
+  const [maxResults, setMaxResults] = useState(100);
+  const [radius, setRadius] = useState(10);
+
+  useEffect(() => {
+    const getPositionAndStations = async () => {
+      try {
+        const pos = await getCurrentPosition();
+        setPosition(pos);
+        const stations = await getChargingStations(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          radius,
+          maxResults,
+          selectedConnectors,
+        );
+        setChargingStations(stations);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    getPositionAndStations();
+  }, [selectedConnectors, maxResults, radius]);
+
+  const handleConnectorFilterChange = (connectors: number[]) => {
+    setSelectedConnectors(connectors);
+  };
+
+  const handleMaxResultsChange = (maxResults: number) => {
+    setMaxResults(maxResults);
+  };
+
+  const handleRadiusChange = (radius: number) => {
+    setRadius(radius);
+  };
+
+  return (
+    <>
+      <ConnectorFilters onChange={handleConnectorFilterChange} />
+      <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
+      <RadiusInput onChange={handleRadiusChange} initialRadius={radius} />
+      <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
+        <Map position={position} chargingStations={chargingStations} />
+      </div>
+    </>
+  );
+}
+
+
+
+//lib/api.ts
+import { ChargingStation } from './types';
+
+const API_BASE_URL = 'https://api.openchargemap.io/v3/poi';
+const apiKey = process.env.NEXT_PUBLIC_OPENCHARGEMAP_API_KEY;
+
+export const getChargingStations = async (
+  latitude: number,
+  longitude: number,
+  radius: number,
+  maxresults: number,
+  connectorTypeIds: number[]
+): Promise<ChargingStation[]> => {
+  const url = new URL(API_BASE_URL);
+  url.searchParams.set('output', 'json');
+  url.searchParams.set('latitude', String(latitude));
+  url.searchParams.set('longitude', String(longitude));
+  url.searchParams.set('distanceunit', 'KM');
+  url.searchParams.set('distance', String(radius));
+  url.searchParams.set('countrycode', 'DE');
+  url.searchParams.set('maxresults', String(maxresults));
+  url.searchParams.set('compact', 'false');
+  url.searchParams.set('verbose', 'true');
+  url.searchParams.set('connectiontypeid', connectorTypeIds.join());
+  url.searchParams.set('key', apiKey);
+
+  const cacheKey = url.toString();
+  const cachedStations = localStorage.getItem(cacheKey);
+  if (cachedStations) {
+    return JSON.parse(cachedStations) as ChargingStation[];
+  }
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  const data = await response.json();
+
+  const stations = data.map((station: any) => ({
+    ID: station.ID,
+    Title: station.AddressInfo?.Title,
+    AddressLine1: station.AddressInfo?.AddressLine1,
+    Town: station.AddressInfo?.Town,
+    StateOrProvince: station.AddressInfo?.StateOrProvince,
+    Postcode: station.AddressInfo?.Postcode,
+    Country: station.AddressInfo?.Country?.Title,
+    Latitude: station.AddressInfo?.Latitude,
+    Longitude: station.AddressInfo?.Longitude,
+    Operator: station.OperatorInfo?.Title,
+    UsageCost: station.UsageCost,
+    Connections: station.Connections,
+    StatusType: station.StatusType,
+    UsageType: station.UsageType,
+    AddressInfo: station.AddressInfo,
+  })) as ChargingStation[];
+
+  localStorage.setItem(cacheKey, JSON.stringify(stations));
+
+  return stations;
+};
+
+
+//lib/constants.ts
+export const CONNECTOR_TYPE_IDS = [25, 2, 33];
+export const API_URL = 'https://api.openchargemap.io/v3/poi';
+export const RADIUS_INCREMENT = 5;
+export const DEFAULT_RADIUS = 10;
+
+
+//lib/geolocation.ts
+export const getCurrentPosition = (): Promise<GeolocationPosition> => {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject);
+  });
+};
+
+
+// export const getCurrentPosition = () =>
+//   new Promise<GeolocationPosition>((resolve, reject) =>
+//     resolve({
+//       coords: {
+//         latitude: 52.520008,
+//         longitude: 13.404954,
+//         accuracy: 0,
+//         altitude: null,
+//         altitudeAccuracy: null,
+//         heading: null,
+//         speed: null,
+//       },
+//       timestamp: Date.now(),
+//     })
+//   );
+
+
+//lib/types.ts
+export interface ChargingStation {
+  ID?: number;
+  AddressInfo?: {
+    Title?: string;
+    AddressLine1?: string;
+    Town?: string;
+    StateOrProvince?: string;
+    Postcode?: string;
+    CountryID?: number;
+    Latitude?: number;
+    Longitude?: number;
+  };
+  Connections?: {
+    ID?: number;
+    ConnectionTypeID?: number;
+    LevelID?: number;
+    Amps?: number;
+    Voltage?: number;
+    PowerKW?: number;
+    CurrentTypeID?: number;
+    Quantity?: number;
+  }[];
+  StatusType?: {
+    IsOperational?: boolean;
+  };
+  UsageType?: {
+    ID?: number;
+    Title?: string;
+  };
+  OperatorInfo?: {
+    ID?: number;
+    Title?: string;
+  };
+  DateLastStatusUpdate?: string;
+  DataQualityLevel?: number;
+  DateCreated?: string;
+  SubmissionStatus?: {
+    IsLive?: boolean;
+  };
+}
+
+
+//lib/utils.ts
+/**
+ * Calculate the great-circle distance between two geographic coordinates using the haversine formula.
+ * @param lat1 Latitude of the first point.
+ * @param lon1 Longitude of the first point.
+ * @param lat2 Latitude of the second point.
+ * @param lon2 Longitude of the second point.
+ * @returns The distance between the two points in kilometers.
+ */
+export const calculateDistance = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const distance = R * c;
+  return distance;
+};
+
+
