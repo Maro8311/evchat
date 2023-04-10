@@ -2,25 +2,25 @@ import { useState } from 'react';
 
 interface RadiusInputProps {
   onChange: (radius: number) => void;
-  initialRadius: number;
+  _radius: number;
 }
 
 export const RadiusInput: React.FC<RadiusInputProps> = ({
   onChange,
-  initialRadius,
+  _radius,
 }) => {
-  const [radius, setRadius] = useState(initialRadius);
+  const [radius, setRadius] = useState(_radius);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onChange(radius);
+  const handleRadiusChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRadius(parseInt(event.target.value));
+    onChange(parseInt(event.target.value));
   };
 
   return (
-    <form onSubmit={handleSubmit}>
+    <form>
       <label>
         Radius (km):
-        <input type="range" min={0} max={100} value={radius} onChange={event => setRadius(parseInt(event.target.value))} />
+        <input type="range" min={0} max={20} value={radius} onChange={handleRadiusChange} />
         {radius} km
       </label>
     </form>

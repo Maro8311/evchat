@@ -1,7 +1,7 @@
 import { ChargingStation } from './types';
 
 const API_BASE_URL = 'https://api.openchargemap.io/v3/poi';
-const apiKey = process.env.NEXT_PUBLIC_OPENCHARGEMAP_API_KEY;
+const apiKey = process.env.OPENCHARGEMAP_API_KEY;
 
 export const getChargingStations = async (
   latitude: number,
@@ -23,7 +23,7 @@ export const getChargingStations = async (
   url.searchParams.set('connectiontypeid', connectorTypeIds.join());
   url.searchParams.set('key', apiKey);
 
-  const cacheKey = url.toString();
+  const cacheKey = url.search;
   const cachedStations = localStorage.getItem(cacheKey);
   if (cachedStations) {
     return JSON.parse(cachedStations) as ChargingStation[];
