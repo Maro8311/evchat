@@ -3,13 +3,11 @@ import { useState } from 'react';
 interface RadiusInputProps {
   onChange: (radius: number) => void;
   initialRadius: number;
-  setRadius: (radius: number) => void;
 }
 
 export const RadiusInput: React.FC<RadiusInputProps> = ({
   onChange,
   initialRadius,
-  setRadius,
 }) => {
   const [radius, setLocalRadius] = useState(initialRadius);
 
@@ -17,7 +15,6 @@ export const RadiusInput: React.FC<RadiusInputProps> = ({
     const newRadius = parseInt(event.target.value);
     setLocalRadius(newRadius);
     onChange(newRadius);
-    setRadius(newRadius);
   };
 
   return (
