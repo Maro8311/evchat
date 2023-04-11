@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, ZoomControl, Marker, Popup, useMap, useMapEvent } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { ChargingStation } from '../lib/types';
 import ChargingStationInfo from './ChargingStationInfo';
@@ -6,15 +6,41 @@ import ChargingStationInfo from './ChargingStationInfo';
 interface MapProps {
   position: GeolocationPosition;
   chargingStations: ChargingStation[];
+  onPositionChange: (newPosition: GeolocationPosition) => void;
 }
 
-const MapCenter = ({ center }: { center: [number, number] }) => {
+interface MapEventHandlerProps {
+  onPositionChange: (newPosition: GeolocationPosition) => void;
+}
+
+const MapEventHandler: React.FC<MapEventHandlerProps> = ({ onPositionChange }) => {
   const map = useMap();
-  map.setView(center, map.getZoom());
+
+  const handleMouseUp = (event: L.LeafletMouseEvent) => {
+    // console.log('Mouse up event:', event);
+
+    const center = map.getCenter();
+    // console.log('Map center:', center);
+
+    // Create a new GeolocationPosition object
+    const newPosition: GeolocationPosition = {
+      coords: {
+        latitude: center.lat,
+        longitude: center.lng,
+      },
+      timestamp: Date.now(),
+    };
+
+    // Call the callback function with the new position
+    onPositionChange(newPosition);
+  };
+
+  useMapEvent('mouseup', handleMouseUp);
+
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
+const Map: React.FC<MapProps> = ({ position, chargingStations, onPositionChange }) => {
   const greenIcon = new Icon({
     iconUrl:
       'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -36,13 +62,25 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
     iconAnchor: [12, 41],
   });
 
+  const handleMouseUp = (event: L.LeafletMouseEvent, map: L.Map) => {
+    console.log('Mouse up event:', event);
+
+    const center = map.getCenter();
+    console.log('Map center:', center);
+
+    // Your custom logic here
+  };
+
   return (
     <MapContainer
       center={[position.coords.latitude, position.coords.longitude]}
       zoom={13}
+      zoomControl={false}
       style={{ height: '90%', width: '100%' }}
       scrollWheelZoom={false}
     >
+      <MapEventHandler onPositionChange={onPositionChange} />
+      <ZoomControl position="topleft" />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -52,8 +90,8 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
           station.StatusType?.IsOperational === null
             ? yellowIcon
             : station.StatusType?.IsOperational
-            ? greenIcon
-            : redIcon;
+              ? greenIcon
+              : redIcon;
 
         return (
           <Marker
@@ -70,6 +108,7 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
           </Marker>
         );
       })}
+      {/* <ChangeView center={[position.coords.latitude, position.coords.longitude]}/>  */}
     </MapContainer>
   );
 };

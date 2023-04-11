@@ -61,7 +61,7 @@ export default ChargingStationInfo;
 
 
 //components/ConnectorFilters.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ConnectorFiltersProps {
   onChange: (connectors: number[]) => void;
@@ -72,31 +72,27 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
   const [chademo, setChademo] = useState(true);
   const [ccs, setCcs] = useState(true);
 
+  useEffect(() => {
+    const selectedConnectors = [
+      ...(type2 ? [25] : []),
+      ...(chademo ? [2] : []),
+      ...(ccs ? [33] : []),
+    ];
+    console.log('Conn:', selectedConnectors.toString())
+    onChange(selectedConnectors);
+  }, [type2, chademo, ccs]);
+
   const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const connectorId = parseInt(event.target.value);
     const isChecked = event.target.checked;
-    
+
     if (connectorId === 25) setType2(isChecked);
     if (connectorId === 2) setChademo(isChecked);
     if (connectorId === 33) setCcs(isChecked);
-    
-    // fix state update problem
-    let _type2, _chademo, _ccs = null;
-    if (connectorId === 25) {_type2 = isChecked;_chademo = chademo;_ccs = ccs;}
-    if (connectorId === 2) {_type2 = type2;_chademo = isChecked;_ccs = ccs;}
-    if (connectorId === 33) {_type2 = type2;_chademo = chademo;_ccs = isChecked;}
-    
-    const selectedConnectors = [
-        ...(_type2 ? [25] : []),
-        ...(_chademo ? [2] : []),
-        ...(_ccs ? [33] : []),
-    ];
-    console.log(`${selectedConnectors}`)
-    onChange(selectedConnectors);
   };
 
   return (
-    <form>
+    <div>
       <div>
         <label>
           <input
@@ -130,7 +126,7 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
           CCS (33)
         </label>
       </div>
-    </form>
+    </div>
   );
 };
 
@@ -138,7 +134,7 @@ export default ConnectorFilters;
 
 
 //components/Map.tsx
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, ZoomControl, Marker, Popup, useMap, useMapEvent } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { ChargingStation } from '../lib/types';
 import ChargingStationInfo from './ChargingStationInfo';
@@ -146,15 +142,41 @@ import ChargingStationInfo from './ChargingStationInfo';
 interface MapProps {
   position: GeolocationPosition;
   chargingStations: ChargingStation[];
+  onPositionChange: (newPosition: GeolocationPosition) => void;
 }
 
-const MapCenter = ({ center }: { center: [number, number] }) => {
+interface MapEventHandlerProps {
+  onPositionChange: (newPosition: GeolocationPosition) => void;
+}
+
+const MapEventHandler: React.FC<MapEventHandlerProps> = ({ onPositionChange }) => {
   const map = useMap();
-  map.setView(center, map.getZoom());
+
+  const handleMouseUp = (event: L.LeafletMouseEvent) => {
+    // console.log('Mouse up event:', event);
+
+    const center = map.getCenter();
+    // console.log('Map center:', center);
+
+    // Create a new GeolocationPosition object
+    const newPosition: GeolocationPosition = {
+      coords: {
+        latitude: center.lat,
+        longitude: center.lng,
+      },
+      timestamp: Date.now(),
+    };
+
+    // Call the callback function with the new position
+    onPositionChange(newPosition);
+  };
+
+  useMapEvent('mouseup', handleMouseUp);
+
   return null;
 };
 
-const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
+const Map: React.FC<MapProps> = ({ position, chargingStations, onPositionChange }) => {
   const greenIcon = new Icon({
     iconUrl:
       'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -176,13 +198,25 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
     iconAnchor: [12, 41],
   });
 
+  const handleMouseUp = (event: L.LeafletMouseEvent, map: L.Map) => {
+    console.log('Mouse up event:', event);
+
+    const center = map.getCenter();
+    console.log('Map center:', center);
+
+    // Your custom logic here
+  };
+
   return (
     <MapContainer
       center={[position.coords.latitude, position.coords.longitude]}
       zoom={13}
+      zoomControl={false}
       style={{ height: '90%', width: '100%' }}
       scrollWheelZoom={false}
     >
+      <MapEventHandler onPositionChange={onPositionChange} />
+      <ZoomControl position="topleft" />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -192,8 +226,8 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
           station.StatusType?.IsOperational === null
             ? yellowIcon
             : station.StatusType?.IsOperational
-            ? greenIcon
-            : redIcon;
+              ? greenIcon
+              : redIcon;
 
         return (
           <Marker
@@ -210,6 +244,7 @@ const Map: React.FC<MapProps> = ({ position, chargingStations }) => {
           </Marker>
         );
       })}
+      {/* <ChangeView center={[position.coords.latitude, position.coords.longitude]}/>  */}
     </MapContainer>
   );
 };
@@ -222,18 +257,22 @@ import { useState } from 'react';
 
 interface RadiusInputProps {
   onChange: (radius: number) => void;
-  _radius: number;
+  initialRadius: number;
+  setRadius: (radius: number) => void;
 }
 
 export const RadiusInput: React.FC<RadiusInputProps> = ({
   onChange,
-  _radius,
+  initialRadius,
+  setRadius,
 }) => {
-  const [radius, setRadius] = useState(_radius);
+  const [radius, setLocalRadius] = useState(initialRadius);
 
   const handleRadiusChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRadius(parseInt(event.target.value));
-    onChange(parseInt(event.target.value));
+    const newRadius = parseInt(event.target.value);
+    setLocalRadius(newRadius);
+    onChange(newRadius);
+    setRadius(newRadius);
   };
 
   return (
@@ -278,47 +317,82 @@ export const MaxResultsDropdown: React.FC<MaxResultsDropdownProps> = ({
   );
 };
 
-
-
 //pages/index.tsx
 import { useEffect, useState } from 'react';
+import ReactLoading from 'react-loading';
 import dynamic from 'next/dynamic';
 import { getCurrentPosition } from '../lib/geolocation';
 import { getChargingStations } from '../lib/api';
 import { CONNECTOR_TYPE_IDS } from '../lib/constants';
 import { ChargingStation } from '../lib/types';
 import ConnectorFilters from '../components/ConnectorFilters';
-import {MaxResultsDropdown, RadiusInput} from '../components/RadiusInput';
+import { MaxResultsDropdown, RadiusInput } from '../components/RadiusInput';
 
 const Map = dynamic(() => import('../components/Map'), { ssr: false });
 
 export default function Home() {
-  const [position, setPosition] = useState<GeolocationPosition | null>(null);
+  const defaultBerlinPosition: GeolocationPosition = {
+    coords: {
+      latitude: 52.5200,
+      longitude: 13.4050,
+      accuracy: 0,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+  };
+  
+  const [position, setPosition] = useState<GeolocationPosition>(defaultBerlinPosition);
   const [chargingStations, setChargingStations] = useState<ChargingStation[]>([]);
   const [selectedConnectors, setSelectedConnectors] = useState(CONNECTOR_TYPE_IDS);
   const [maxResults, setMaxResults] = useState(100);
   const [radius, setRadius] = useState(10);
+  const [loading, setLoading] = useState(false);
+
+  const getStations = async (pos = position) => {
+    return await getChargingStations(
+      pos.coords.latitude,
+      pos.coords.longitude,
+      radius,
+      maxResults,
+      selectedConnectors,
+    );
+  }
+
+  const getPositionAndStations = async () => {
+    setLoading(true);
+    try {
+      const pos = await getCurrentPosition();
+      setPosition(pos);
+      const stations = await getStations(pos);
+      setChargingStations(stations);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const getPositionAndStations = async () => {
-      try {
-        const pos = await getCurrentPosition();
-        setPosition(pos);
-        const stations = await getChargingStations(
-          pos.coords.latitude,
-          pos.coords.longitude,
-          radius,
-          maxResults,
-          selectedConnectors,
-        );
-        setChargingStations(stations);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
+    // console.log('useEffect')
     getPositionAndStations();
   }, [selectedConnectors, maxResults, radius]);
+
+  const handlePositionChange = async (newPosition: GeolocationPosition) => {
+    setPosition(newPosition);
+    // console.log('handlePos')
+    setLoading(true);
+    try {
+      const newStations = await getStations();
+      setChargingStations(newStations);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleConnectorFilterChange = (connectors: number[]) => {
     setSelectedConnectors(connectors);
@@ -334,30 +408,49 @@ export default function Home() {
 
   return (
     <>
-      <ConnectorFilters onChange={handleConnectorFilterChange} />
-      <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
-      <RadiusInput onChange={handleRadiusChange} initialRadius={radius} />
       <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
-        <Map position={position} chargingStations={chargingStations} />
+        <div style={{
+          position: 'absolute', top: '10px', left: '10px', zIndex: 1000, backgroundColor: 'white',
+          padding: '10px', borderRadius: '5px',
+        }}
+        >
+          <ConnectorFilters onChange={handleConnectorFilterChange} />
+          <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
+          <RadiusInput onChange={handleRadiusChange} initialRadius={radius} setRadius={setRadius} />
+        </div>
+        {loading && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 1001,
+            }}
+          >
+            <ReactLoading type="spin" color="#3f51b5" />
+          </div>
+        )}
+        <Map position={position} chargingStations={chargingStations} onPositionChange={handlePositionChange} />
       </div>
     </>
   );
 }
 
 
-
 //lib/api.ts
 import { ChargingStation } from './types';
 
 const API_BASE_URL = 'https://api.openchargemap.io/v3/poi';
-const apiKey = process.env.NEXT_PUBLIC_OPENCHARGEMAP_API_KEY;
+const apiKey = process.env.OPENCHARGEMAP_API_KEY;
 
 export const getChargingStations = async (
   latitude: number,
   longitude: number,
   radius: number,
   maxresults: number,
-  connectorTypeIds: number[]
+  connectorTypeIds: number[],
+  useClientSideFiltering: boolean = false // Add this optional parameter with a default value of false
 ): Promise<ChargingStation[]> => {
   const url = new URL(API_BASE_URL);
   url.searchParams.set('output', 'json');
@@ -369,14 +462,10 @@ export const getChargingStations = async (
   url.searchParams.set('maxresults', String(maxresults));
   url.searchParams.set('compact', 'false');
   url.searchParams.set('verbose', 'true');
-  url.searchParams.set('connectiontypeid', connectorTypeIds.join());
-  url.searchParams.set('key', apiKey);
-
-  const cacheKey = url.toString();
-  const cachedStations = localStorage.getItem(cacheKey);
-  if (cachedStations) {
-    return JSON.parse(cachedStations) as ChargingStation[];
+  if (!useClientSideFiltering) {
+    url.searchParams.set('connectiontypeid', connectorTypeIds.join());
   }
+  url.searchParams.set('key', apiKey);
 
   const response = await fetch(url.toString());
   if (!response.ok) {
@@ -402,7 +491,15 @@ export const getChargingStations = async (
     AddressInfo: station.AddressInfo,
   })) as ChargingStation[];
 
-  localStorage.setItem(cacheKey, JSON.stringify(stations));
+  // If useClientSideFiltering is true, manually filter the charging stations based on the selected connectors
+  if (useClientSideFiltering) {
+    const filteredStations = stations.filter((station) =>
+      station.Connections && station.Connections.some((connection) =>
+        connectorTypeIds.includes(connection.ConnectionTypeID)
+      )
+    );
+    return filteredStations;
+  }
 
   return stations;
 };
@@ -421,24 +518,6 @@ export const getCurrentPosition = (): Promise<GeolocationPosition> => {
     navigator.geolocation.getCurrentPosition(resolve, reject);
   });
 };
-
-
-// export const getCurrentPosition = () =>
-//   new Promise<GeolocationPosition>((resolve, reject) =>
-//     resolve({
-//       coords: {
-//         latitude: 52.520008,
-//         longitude: 13.404954,
-//         accuracy: 0,
-//         altitude: null,
-//         altitudeAccuracy: null,
-//         heading: null,
-//         speed: null,
-//       },
-//       timestamp: Date.now(),
-//     })
-//   );
-
 
 //lib/types.ts
 export interface ChargingStation {

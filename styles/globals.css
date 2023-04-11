@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+
+/* Overwrite leaflet.css rules */
+.leaflet-control-container .leaflet-top.leaflet-left {
+  top: 150px; /* Adjust the distance from the top */
+  left: 0px; /* Adjust the distance from the left */
+}
+
+
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;

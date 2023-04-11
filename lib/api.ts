@@ -8,7 +8,8 @@ export const getChargingStations = async (
   longitude: number,
   radius: number,
   maxresults: number,
-  connectorTypeIds: number[]
+  connectorTypeIds: number[],
+  useClientSideFiltering: boolean = false // Add this optional parameter with a default value of false
 ): Promise<ChargingStation[]> => {
   const url = new URL(API_BASE_URL);
   url.searchParams.set('output', 'json');
@@ -20,13 +21,13 @@ export const getChargingStations = async (
   url.searchParams.set('maxresults', String(maxresults));
   url.searchParams.set('compact', 'false');
   url.searchParams.set('verbose', 'true');
-  url.searchParams.set('connectiontypeid', connectorTypeIds.join());
-  url.searchParams.set('key', apiKey);
-
-  const cacheKey = url.search;
-  const cachedStations = localStorage.getItem(cacheKey);
-  if (cachedStations) {
-    return JSON.parse(cachedStations) as ChargingStation[];
+  if (!useClientSideFiltering) {
+    url.searchParams.set('connectiontypeid', connectorTypeIds.join());
+  }
+  if (apiKey) {
+    url.searchParams.set('key', apiKey);
+  } else {
+    throw new Error('API key is not defined');
   }
 
   const response = await fetch(url.toString());
@@ -53,7 +54,15 @@ export const getChargingStations = async (
     AddressInfo: station.AddressInfo,
   })) as ChargingStation[];
 
-  localStorage.setItem(cacheKey, JSON.stringify(stations));
+  // If useClientSideFiltering is true, manually filter the charging stations based on the selected connectors
+  if (useClientSideFiltering) {
+    const filteredStations = stations.filter((station) =>
+      station.Connections && station.Connections.some((connection) =>
+        connection.ConnectionTypeID !== undefined && connectorTypeIds.includes(connection.ConnectionTypeID)
+      )
+    );
+    return filteredStations;
+  }
 
   return stations;
 };

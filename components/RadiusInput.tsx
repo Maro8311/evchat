@@ -2,18 +2,22 @@ import { useState } from 'react';
 
 interface RadiusInputProps {
   onChange: (radius: number) => void;
-  _radius: number;
+  initialRadius: number;
+  setRadius: (radius: number) => void;
 }
 
 export const RadiusInput: React.FC<RadiusInputProps> = ({
   onChange,
-  _radius,
+  initialRadius,
+  setRadius,
 }) => {
-  const [radius, setRadius] = useState(_radius);
+  const [radius, setLocalRadius] = useState(initialRadius);
 
   const handleRadiusChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRadius(parseInt(event.target.value));
-    onChange(parseInt(event.target.value));
+    const newRadius = parseInt(event.target.value);
+    setLocalRadius(newRadius);
+    onChange(newRadius);
+    setRadius(newRadius);
   };
 
   return (
