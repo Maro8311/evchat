@@ -23,7 +23,8 @@
     "react-leaflet": "^4.2.1",
     "react-loading": "^2.0.3",
     "tailwindcss": "3.3.1",
-    "typescript": "5.0.4"
+    "typescript": "5.0.4",
+    "venn.js": "^0.2.20"
   },
   "devDependencies": {
     "@types/react-leaflet": "^3.0.0"
