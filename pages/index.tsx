@@ -96,7 +96,7 @@ export default function Home() {
         >
           <ConnectorFilters onChange={handleConnectorFilterChange} />
           <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
-          <RadiusInput onChange={handleRadiusChange} initialRadius={radius} setRadius={setRadius} />
+          <RadiusInput onChange={handleRadiusChange} initialRadius={radius}/>
         </div>
         {loading && (
           <div
