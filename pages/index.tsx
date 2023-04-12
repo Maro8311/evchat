@@ -8,7 +8,7 @@ import { ChargingStation } from '../lib/types';
 import ConnectorFilters from '../components/ConnectorFilters';
 import TotalStationsCount from '../components/TotalStationsCount';
 import { MaxResultsDropdown, RadiusInput } from '../components/RadiusInput';
-import VennDiagram from '../components/VennDiagram';
+// import VennDiagram from '../components/VennDiagram';
 
 const Map = dynamic(() => import('../components/Map'), { ssr: false });
 
@@ -44,6 +44,10 @@ export default function Home() {
         selectedConnectors,
       );
       setChargingStations(stations);
+      
+      // Debug
+      const res = countConnectorCombinations(stations)
+      console.log(res)
     } catch (error) {
       console.error(error);
     } finally {
@@ -90,36 +94,70 @@ export default function Home() {
     setRadius(radius);
   };
 
-  return (
-    <>
-      {/* {chargingStations.length > 0 && <VennDiagram stations={chargingStations} />} */}
-      <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
-        <div style={{
-          position: 'absolute', top: '10px', left: '10px', zIndex: 1000, backgroundColor: 'white',
-          padding: '10px', borderRadius: '5px',
-        }}
-        >
-          <ConnectorFilters onChange={handleConnectorFilterChange} chargingStations={chargingStations} />
-          <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
-          <TotalStationsCount count={chargingStations.length} />
-          <RadiusInput onChange={handleRadiusChange} initialRadius={radius} />
-        </div>
-        {loading && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1001,
-            }}
-          >
-            <ReactLoading type="spin" color="#3f51b5" />
-          </div>
-        )}
-        <Map position={position} chargingStations={chargingStations} onPositionChange={handlePositionChange} />
+  const countConnectorCombinations = (chargingStations) => {
+    const combinationCounts = {};
+    
+    chargingStations.forEach((station) => {
+      const connectorTypes = new Set();
+    
+      station.Connections.forEach((connection) => {
+        const typeId = connection.ConnectionTypeID;
+        if ([25, 2, 33].includes(typeId)) {
+          connectorTypes.add(typeId);
+        }
+      });
+    
+      const combinationKey = Array.from(connectorTypes).sort().join(',');
+    
+      if (!combinationCounts[combinationKey]) {
+        combinationCounts[combinationKey] = 0;
+      }
+    
+      combinationCounts[combinationKey]++;
+    });
+  
+    const combinationStrings = Object.entries(combinationCounts).map(([combinationKey, count]) => {
+      return `${combinationKey} (${count})`;
+    });
+  
+    const totalSum = Object.values(combinationCounts).reduce((acc, val) => acc + val, 0);
+  
+    combinationStrings.push(`Total: ${totalSum}`);
+  
+    return combinationStrings;
+  };
+  
+
+return (
+  <>
+    {/* {chargingStations.length > 0 && <VennDiagram stations={chargingStations} />} */}
+    <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
+      <div style={{
+        position: 'absolute', top: '10px', left: '10px', zIndex: 1000, backgroundColor: 'white',
+        padding: '10px', borderRadius: '5px',
+      }}
+      >
+        <ConnectorFilters onChange={handleConnectorFilterChange} chargingStations={chargingStations} />
+        <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
+        <TotalStationsCount count={chargingStations.length} />
+        <RadiusInput onChange={handleRadiusChange} initialRadius={radius} />
       </div>
-    </>
-  );
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 1001,
+          }}
+        >
+          <ReactLoading type="spin" color="#3f51b5" />
+        </div>
+      )}
+      <Map position={position} chargingStations={chargingStations} onPositionChange={handlePositionChange} />
+    </div>
+  </>
+);
 }
 

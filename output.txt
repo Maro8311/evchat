@@ -1,12 +1,15 @@
 /** BEGIN: components/ConnectorFilters.tsx **/
 
 import { useState, useEffect } from 'react';
+import { ChargingStation } from '../lib/types';
 
+// Add the chargingStations prop to the ConnectorFiltersProps interface
 interface ConnectorFiltersProps {
   onChange: (connectors: number[]) => void;
+  chargingStations: ChargingStation[];
 }
 
-const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
+const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange, chargingStations }) => {
   const [type2, setType2] = useState(true);
   const [chademo, setChademo] = useState(true);
   const [ccs, setCcs] = useState(true);
@@ -20,6 +23,19 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
     console.log('Conn:', selectedConnectors.toString())
     onChange(selectedConnectors);
   }, [type2, chademo, ccs]);
+
+  const countConnectorType = (typeId: number) => {
+  const uniqueStations = new Set<number>();
+  chargingStations.forEach(station => {
+    station.Connections.forEach(connection => {
+      if (connection.ConnectionTypeID === typeId) {
+        uniqueStations.add(station.ID);
+      }
+    });
+  });
+  return uniqueStations.size;
+};
+
 
   const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const connectorId = parseInt(event.target.value);
@@ -40,7 +56,7 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
             checked={type2}
             onChange={handleCheckboxChange}
           />
-          Type 2 (25)
+          Type 2 (25) - {countConnectorType(25)}
         </label>
       </div>
       <div>
@@ -51,7 +67,7 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
             checked={chademo}
             onChange={handleCheckboxChange}
           />
-          CHAdeMO (2)
+          CHAdeMO (2) - {countConnectorType(2)}
         </label>
       </div>
       <div>
@@ -62,7 +78,7 @@ const ConnectorFilters: React.FC<ConnectorFiltersProps> = ({ onChange }) => {
             checked={ccs}
             onChange={handleCheckboxChange}
           />
-          CCS (33)
+          CCS (33) - {countConnectorType(33)}
         </label>
       </div>
     </div>
@@ -110,16 +126,6 @@ export const getChargingStations = async (
 
 /** BEGIN: pages/index.tsx **/
 
-import { useEffect, useState } from 'react';
-import ReactLoading from 'react-loading';
-import dynamic from 'next/dynamic';
-import { getCurrentPosition } from '../lib/geolocation';
-import { getChargingStations } from '../lib/api';
-import { CONNECTOR_TYPE_IDS } from '../lib/constants';
-import { ChargingStation } from '../lib/types';
-import ConnectorFilters from '../components/ConnectorFilters';
-import { MaxResultsDropdown, RadiusInput } from '../components/RadiusInput';
-
 const Map = dynamic(() => import('../components/Map'), { ssr: false });
 
 export default function Home() {
@@ -160,7 +166,7 @@ export default function Home() {
       setLoading(false);
     }
   };
-  
+
   const getPositionAndStations = async () => {
     try {
       const pos = await getCurrentPosition();
@@ -170,10 +176,10 @@ export default function Home() {
       console.error(error);
     }
   };
-  
+
   useEffect(() => {
     console.log('useEffect');
-  
+
     // Fetch the initial data only if there are no charging stations.
     if (chargingStations.length === 0) {
       getPositionAndStations();
@@ -182,7 +188,7 @@ export default function Home() {
       getStations();
     }
   }, [selectedConnectors, maxResults, radius]);
-  
+
   const handlePositionChange = async (newPosition: GeolocationPosition) => {
     setPosition(newPosition);
     await getStations();
@@ -202,31 +208,7 @@ export default function Home() {
 
   return (
     <>
-      <div style={{ height: '100vh', width: '100%', position: 'relative' }}>
-        <div style={{
-          position: 'absolute', top: '10px', left: '10px', zIndex: 1000, backgroundColor: 'white',
-          padding: '10px', borderRadius: '5px',
-        }}
-        >
-          <ConnectorFilters onChange={handleConnectorFilterChange} />
-          <MaxResultsDropdown onChange={handleMaxResultsChange} initialMaxResults={maxResults} />
-          <RadiusInput onChange={handleRadiusChange} initialRadius={radius} />
-        </div>
-        {loading && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1001,
-            }}
-          >
-            <ReactLoading type="spin" color="#3f51b5" />
-          </div>
-        )}
-        <Map position={position} chargingStations={chargingStations} onPositionChange={handlePositionChange} />
-      </div>
+      {/* some jsx*/}
     </>
   );
 }
