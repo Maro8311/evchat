@@ -9,7 +9,7 @@ export const getChargingStations = async (
   radius: number,
   maxresults: number,
   connectorTypeIds: number[],
-  useClientSideFiltering: boolean = false
+  useClientSideFiltering: boolean = true
 ): Promise<ChargingStation[]> => {
   const url = new URL(API_BASE_URL);
   url.searchParams.set('output', 'json');
