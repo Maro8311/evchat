@@ -19,7 +19,7 @@ def print_ts_files(output_file=None):
         dir_path = os.path.join(input_dir, dir_name)
         if os.path.isdir(dir_path):
             for file_name in os.listdir(dir_path):
-                if file_name.endswith(('.ts', '.tsx')) and not file_name.startswith('_'):
+                if file_name.endswith(('.ts', '.tsx','.js','.jsx')) and not file_name.startswith('_'):
                     print(f"//{dir_name}/{file_name}")
                     file_path = os.path.join(dir_path, file_name)
                     with open(file_path, 'r') as f:

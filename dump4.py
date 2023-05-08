@@ -21,6 +21,7 @@ def process_file(file_path, relative_dir, filename):
 
 if __name__ == '__main__':
     script_directory = os.path.dirname(os.path.abspath(__file__))
-    filelist = ['index.tsx', 'ConnectorFilters.tsx', 'api.ts', 'chargingStations.js', 'chargingStationsApi.ts']
+    #filelist = ['index.tsx', 'RadiusInput.tsx', 'Map.tsx', 'ConnectorFilters.tsx', 'TotalStationsCount.tsx']
+    filelist = ['api.ts', 'chargingStations.js', 'chargingStationsApi.ts']
     allowed_subdirs = ['pages', 'components', 'lib']  # Replace with your list of allowed subdirectories
     recurse_directory(script_directory, filelist, allowed_subdirs)
